@@ -54,4 +54,5 @@ dependencies {
     implementation(Dependencies.WORKMANAGER)
     implementation(Dependencies.NAVIGATION_FRAGMENT_KTX)
     implementation(Dependencies.NAVIGATION_UI_KTX)
+    implementation(Dependencies.CUSTOM_TAB)
 }
