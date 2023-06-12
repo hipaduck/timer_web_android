@@ -55,4 +55,13 @@ dependencies {
     implementation(Dependencies.NAVIGATION_FRAGMENT_KTX)
     implementation(Dependencies.NAVIGATION_UI_KTX)
     implementation(Dependencies.CUSTOM_TAB)
+    implementation(Dependencies.DATASTORE_PREFERENCES)
+
+    // https://weeklycoding.com/mpandroidchart-documentation/
+    // https://github.com/PhilJay/MPAndroidChart
+    implementation(Dependencies.MP_ANDROID_CHART)
+
+    // Hilt extension
+    implementation(Dependencies.HILT_EXTENSION_WORK)
+    kapt(Dependencies.HILT_EXTENSION_KAPT)
 }

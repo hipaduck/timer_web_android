@@ -25,4 +25,9 @@ object Dependencies {
         "androidx.navigation:navigation-fragment-ktx:${Versions.NAVIGATION}"
     const val NAVIGATION_UI_KTX = "androidx.navigation:navigation-ui-ktx:${Versions.NAVIGATION}"
     const val CUSTOM_TAB = "androidx.browser:browser:${Versions.CUSTOM_TAB}"
+    const val DATASTORE_PREFERENCES =
+        "androidx.datastore:datastore-preferences:${Versions.DATASTORE}"
+    const val HILT_EXTENSION_WORK = "androidx.hilt:hilt-work:${Versions.HILT_EXTENSION}"
+    const val HILT_EXTENSION_KAPT = "androidx.hilt:hilt-compiler:${Versions.HILT_EXTENSION}"
+    const val MP_ANDROID_CHART = "com.github.PhilJay:MPAndroidChart:v${Versions.MP_ANDROID_CHART}"
 }

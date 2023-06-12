@@ -29,6 +29,7 @@
             android:layout_margin="100dp"
             android:background="@drawable/background_square"
             android:gravity="center"
+            android:onClick="@{()->vm.cancelWork()}"
             android:text="@{vm.timer}"
             android:textColor="#2D3D77"
             android:textSize="40sp"
@@ -64,6 +65,7 @@
                 android:layout_width="50dp"
                 android:layout_height="50dp"
                 android:background="@drawable/background_square"
+                android:onClick="@{()->vm.startWork()}"
                 android:scaleType="centerCrop"
                 android:src="@drawable/magnifying_glass" />
         </LinearLayout>
