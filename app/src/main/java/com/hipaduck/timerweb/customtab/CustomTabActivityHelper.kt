@@ -1,22 +1,33 @@
-package com.hipaduck.timerweb
+package com.hipaduck.timerweb.customtab
 
 import android.app.Activity
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.text.TextUtils
-import android.util.Log
+import android.os.Bundle
+import androidx.browser.customtabs.CustomTabsCallback
 import androidx.browser.customtabs.CustomTabsClient
 import androidx.browser.customtabs.CustomTabsServiceConnection
 import androidx.browser.customtabs.CustomTabsSession
 
-class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback): ServiceConnectionCallback {
-    private var mCustomTabsSession: CustomTabsSession? = null //GAEGUL: 얘를 넘겨야함
-    private var mClient: CustomTabsClient? = null //GAEGUL: 얘로 세션을 생성함
-    private var mConnection: CustomTabsServiceConnection? = null //GAEGUL: 얘로 connection 상태를 받음
-//    private var mConnectionCallback: ConnectionCallback? = null //GAEGUL: 상태에 대한 콜백
-    
+
+class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback) :
+    ServiceConnectionCallback {
+    private var mCustomTabsSession: CustomTabsSession? = null
+    private var mClient: CustomTabsClient? = null
+    private var mConnection: CustomTabsServiceConnection? = null
+
+    private val mCustomTabsCallback: CustomTabsCallback = object : CustomTabsCallback() {
+        override fun onNavigationEvent(navigationEvent: Int, extras: Bundle?) {
+            val event = when (navigationEvent) {
+                NAVIGATION_ABORTED -> "NAVIGATION_ABORTED"
+                NAVIGATION_FAILED -> "NAVIGATION_FAILED"
+                NAVIGATION_FINISHED -> "NAVIGATION_FINISHED"
+                NAVIGATION_STARTED -> "NAVIGATION_STARTED"
+                TAB_SHOWN -> "TAB_SHOWN"
+                TAB_HIDDEN -> "TAB_HIDDEN"
+                else -> navigationEvent.toString()
+            }
+        }
+    }
+
     override fun onServiceConnected(client: CustomTabsClient?) {
         mClient = client
         mClient?.warmup(0L)
@@ -38,7 +49,7 @@ class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback
         if (mClient == null) {
             mCustomTabsSession = null
         } else if (mCustomTabsSession == null) {
-            mCustomTabsSession = mClient?.newSession(null)
+            mCustomTabsSession = mClient?.newSession(mCustomTabsCallback)
         }
         return mCustomTabsSession
     }
@@ -51,7 +62,11 @@ class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback
         if (mClient != null) return
         val packageName = activity?.let { CustomTabsHelper.getPackageNameToUse(it) } ?: return
         mConnection = ServiceConnection(this)
-        CustomTabsClient.bindCustomTabsService(activity!!, packageName, mConnection as ServiceConnection)
+        CustomTabsClient.bindCustomTabsService(
+            activity!!,
+            packageName,
+            mConnection as ServiceConnection
+        )
     }
 
     /**
@@ -81,18 +96,5 @@ class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback
          * Called when the service is disconnected.
          */
         fun onCustomTabsDisconnected()
-    }
-
-
-    /**
-     * To be used as a fallback to open the Uri when Custom Tabs is not available.
-     */
-    interface CustomTabFallback {
-        /**
-         *
-         * @param activity The Activity that wants to open the Uri.
-         * @param uri The uri to be opened by the fallback.
-         */
-        fun openUri(activity: Activity?, uri: Uri?)
     }
 }
