@@ -1,4 +1,4 @@
-package com.hipaduck.timerweb
+package com.hipaduck.timerweb.customtab
 
 import android.content.ContentValues.TAG
 import android.content.Context
@@ -82,16 +82,4 @@ object CustomTabsHelper {
         }
         return false
     }
-
-    object Values {
-        const val STABLE_PACKAGE = "com.android.chrome"
-        const val BETA_PACKAGE = "com.chrome.beta"
-        const val DEV_PACKAGE = "com.chrome.dev"
-        const val LOCAL_PACKAGE = "com.google.android.apps.chrome"
-        private const val TAG = "CustomTabsHelper"
-        private const val EXTRA_CUSTOM_TABS_KEEP_ALIVE = "android.support.customtabs.extra.KEEP_ALIVE"
-        private const val ACTION_CUSTOM_TABS_CONNECTION =
-            "android.support.customtabs.action.CustomTabsService"
-    }
-
 }
