@@ -13,12 +13,12 @@ import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.databinding.DataBindingUtil
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.hipaduck.timerweb.R
 import com.hipaduck.timerweb.customtab.CustomTabActivityHelper
@@ -32,10 +32,10 @@ import java.net.MalformedURLException
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCallback {
-    private lateinit var mainViewModel: MainViewModel
     lateinit var binding: ActivityMainBinding
     private lateinit var mCustomTabActivityHelper: CustomTabActivityHelper
-    private val list: MutableList<String> = mutableListOf<String>()
+    private val list: MutableList<String> = mutableListOf()
+    private val mainViewModel by viewModels<MainViewModel>()
 
     @SuppressLint("ClickableViewAccessibility")
     @RequiresApi(Build.VERSION_CODES.R)
@@ -43,9 +43,10 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
         super.onCreate(savedInstanceState)
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
-        mainViewModel = ViewModelProvider(this)[MainViewModel::class.java]
         binding.vm = mainViewModel
         binding.lifecycleOwner = this
+
+        initializeBinding()
 
         binding.background.setOnTouchListener { _, _ ->
             searchEtClearFocus()
@@ -71,7 +72,6 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
             }
 
             updateUrlListView()
-            binding.vm?.startWork()
             searchEtClearFocus()
         }
 
@@ -93,29 +93,37 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
             searchEtClearFocus()
         }
         updateUrlListView()
+    }
 
-        binding.vm?.shouldApplyAnimation?.observe(this) { shouldShowAnimation ->
-            if (shouldShowAnimation) {
-                val anim: Animation = AnimationUtils.loadAnimation(this, R.anim.scale)
-                anim.reset()
-                binding.mainTimerTv.apply { //animation flow (red -> scale change --2000ms--> original color)
-                    background = AppCompatResources.getDrawable(
-                        applicationContext,
-                        R.drawable.background_square_alert
-                    )
-                    setTextColor(Color.RED)
-                    clearAnimation()
-                    startAnimation(anim)
-                    lifecycleScope.launch {
-                        delay(ANIMATION_DELAY_SEC)
-                        setTextColor(applicationContext.getColor(R.color.text_color))
-                        background = AppCompatResources.getDrawable(
-                            applicationContext,
-                            R.drawable.background_square
-                        )
-                        clearAnimation()
-                    }
+    private fun initializeBinding() {
+        mainViewModel.actionEvent.observe(this) { event ->
+            event.getContentIfNotHandled().let { eventName ->
+                when (eventName) {
+                    "notify_on_period" -> shakeTimer()
                 }
+            }
+        }
+    }
+
+    private fun shakeTimer() {
+        val anim: Animation = AnimationUtils.loadAnimation(this, R.anim.scale)
+        anim.reset()
+        binding.mainTimerTv.apply { //animation flow (red -> scale change --2000ms--> original color)
+            background = AppCompatResources.getDrawable(
+                applicationContext,
+                R.drawable.background_square_alert
+            )
+            setTextColor(Color.RED)
+            clearAnimation()
+            startAnimation(anim)
+            lifecycleScope.launch {
+                delay(ANIMATION_DELAY_SEC)
+                setTextColor(applicationContext.getColor(R.color.text_color))
+                background = AppCompatResources.getDrawable(
+                    applicationContext,
+                    R.drawable.background_square
+                )
+                clearAnimation()
             }
         }
     }

@@ -1,6 +1,5 @@
 package com.hipaduck.timerweb.viewmodel
 
-import android.app.Application
 import android.text.format.DateUtils
 import android.util.Log
 import androidx.datastore.core.DataStore
@@ -10,28 +9,22 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
+import com.hipaduck.timerweb.Event
 import com.hipaduck.timerweb.data.TimerWebRepository
-import com.hipaduck.timerweb.worker.TimeCountWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val application: Application,
     private val timerWebRepository: TimerWebRepository,
-    private val workManager: WorkManager,
     private val datastore: DataStore<Preferences>,
 ) : ViewModel() {
     var timerSec = 0
@@ -44,35 +37,16 @@ class MainViewModel @Inject constructor(
     val timer: MutableLiveData<String>
         get() = _timer
 
+    private var jobNotify: Job? = null
+    private var jobCount: Job? = null
+
+    private val _actionEvent: MutableLiveData<Event<String>> = MutableLiveData(Event(""))
+    val actionEvent: MutableLiveData<Event<String>>
+        get() = _actionEvent
+
     init {
-        viewModelScope.launch {
-            while (timerSec >= 0) {
-                _timer.value = DateUtils.formatElapsedTime((++timerSec).toLong())
-                if (timerSec % 600 == 0) _shouldApplyAnimation.value = true
-//                if (timerSec % 10 == 0) _shouldApplyAnimation.value = true //10s delay for the test
-                delay(1000L)
-            }
-        }
-
+        repeatWork()
     }
-
-    fun startWork() {
-        val constraints = Constraints.Builder()
-            .setRequiresCharging(true)
-            .setRequiresBatteryNotLow(true)
-            .build()
-
-        // todo PeriodicWork를 사용하기 위해서는 최소시간이 15분이다... 이걸 어찌 활용해야하나..
-        val workRequest = PeriodicWorkRequestBuilder<TimeCountWorker>(10, TimeUnit.SECONDS)
-            .setConstraints(constraints)
-            .build()
-
-        workManager.enqueueUniquePeriodicWork(
-            WORKER_KEY, ExistingPeriodicWorkPolicy.UPDATE, workRequest
-        )
-    }
-
-    fun cancelWork() = workManager.cancelUniqueWork(WORKER_KEY)
 
     fun updateUrl(url: String) {
         viewModelScope.launch {
@@ -154,17 +128,47 @@ class MainViewModel @Inject constructor(
         return urlList
     }
 
+    private fun repeatWork() {
+        countTime()
+        notifyPeriodically(10_000L)
+    }
+
+    private fun countTime() {
+        jobCount = viewModelScope.launch {
+            while (true) {
+                delay(1000L)
+                _timer.value = DateUtils.formatElapsedTime((++timerSec).toLong())
+            }
+        }
+    }
+
+    private fun notifyPeriodically(periodTime: Long = DEFAULT_PERIOD_TIME) {
+        jobNotify = viewModelScope.launch {
+            while (true) {
+                delay(periodTime)
+                _actionEvent.value = Event("notify_on_period")
+            }
+        }
+    }
+
+    // todo 신규 정의/호출해야 하는 함수 목록
+    // web browsing 이벤트 발생시 timer 시간 흐름
+    // web browsing 이벤트 종료시 timer 시간 일시 정지
+    // timer 10초 갱신시마다(매초 보다는 효율적일듯) 현재 타이머의 값 저장하기
+    // 앱을 구동시마다 로컬 저장소 값 기준으로 그래프 표현하기
+
     data class UrlData(
         var url: String,
         var count: Int,
         var time: Long
     )
 
-    companion object PreferenceKey {
+    companion object {
         const val URL_SEARCH_HISTORY_PREF_KEY = "url_search_history"
         const val URL_SEARCH_HISTORY_URL_KEY = "url"
         const val URL_SEARCH_HISTORY_COUNT_KEY = "count"
         const val URL_SEARCH_HISTORY_TIME_KEY = "time"
-        private const val WORKER_KEY = "time_count_worker"
+
+        const val DEFAULT_PERIOD_TIME = 1000L * 60L * 10L // 10분
     }
 }
