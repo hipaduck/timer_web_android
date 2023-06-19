@@ -2,6 +2,7 @@ package com.hipaduck.timerweb.customtab
 
 import android.app.Activity
 import android.os.Bundle
+import android.util.Log
 import androidx.browser.customtabs.CustomTabsCallback
 import androidx.browser.customtabs.CustomTabsClient
 import androidx.browser.customtabs.CustomTabsServiceConnection
@@ -21,10 +22,19 @@ class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback
                 NAVIGATION_FAILED -> "NAVIGATION_FAILED"
                 NAVIGATION_FINISHED -> "NAVIGATION_FINISHED"
                 NAVIGATION_STARTED -> "NAVIGATION_STARTED"
-                TAB_SHOWN -> "TAB_SHOWN"
-                TAB_HIDDEN -> "TAB_HIDDEN"
+                TAB_SHOWN -> {
+                    connectionCallback.onCustomTabShown()
+                    "TAB_SHOWN"
+                }
+
+                TAB_HIDDEN -> {
+                    connectionCallback.onCustomTabHidden()
+                    "TAB_HIDDEN"
+                }
+
                 else -> navigationEvent.toString()
             }
+            Log.d("timer_web", "onNavigationEvent: $event")
         }
     }
 
@@ -96,5 +106,9 @@ class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback
          * Called when the service is disconnected.
          */
         fun onCustomTabsDisconnected()
+
+        fun onCustomTabHidden()
+
+        fun onCustomTabShown()
     }
 }

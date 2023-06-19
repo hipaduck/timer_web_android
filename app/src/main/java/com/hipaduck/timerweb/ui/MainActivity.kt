@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -14,7 +13,6 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.viewModels
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.browser.customtabs.CustomTabsIntent
@@ -38,7 +36,6 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
     private val mainViewModel by viewModels<MainViewModel>()
 
     @SuppressLint("ClickableViewAccessibility")
-    @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
@@ -51,28 +48,6 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
         binding.background.setOnTouchListener { _, _ ->
             searchEtClearFocus()
             true
-        }
-
-        binding.mainSearchIv.setOnClickListener {
-            // Uses the established session to build a PCCT intent.
-            val session = mCustomTabActivityHelper.getSession()
-            val height = windowManager.currentWindowMetrics.bounds.height()
-
-            val url = binding.mainUrlEt.text.toString()
-            binding.vm?.updateUrl(url)
-
-            val customTabsIntent: CustomTabsIntent = CustomTabsIntent.Builder(session)
-                .setInitialActivityHeightPx(height - getTimerPosition())
-                .setCloseButtonPosition(CustomTabsIntent.CLOSE_BUTTON_POSITION_END)
-                .build()
-            try {
-                customTabsIntent.launchUrl(this, Uri.parse(url))
-            } catch (e: MalformedURLException) {
-                Toast.makeText(this, "Unavailable Uri", Toast.LENGTH_SHORT).show()
-            }
-
-            updateUrlListView()
-            searchEtClearFocus()
         }
 
         binding.mainUrlEt.setOnFocusChangeListener { _, isFocused ->
@@ -100,6 +75,7 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
             event.getContentIfNotHandled().let { eventName ->
                 when (eventName) {
                     "notify_on_period" -> shakeTimer()
+                    "launch_url" -> launchCustomTab()
                 }
             }
         }
@@ -164,6 +140,16 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
         mCustomTabActivityHelper.unbindCustomTabsService(this)
     }
 
+    override fun onCustomTabShown() {
+        mainViewModel.countTime() // 띄우고 난 뒤부터 카운팅 하기 위함
+        mainViewModel.repeatNotifyWork()
+    }
+
+    override fun onCustomTabHidden() {
+        mainViewModel.pauseTime()
+        mainViewModel.stopNotifyWork()
+    }
+
     private fun searchEtClearFocus() {
         binding.mainUrlEt.clearFocus()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -171,6 +157,28 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
             binding.background.windowToken,
             InputMethodManager.HIDE_NOT_ALWAYS
         )
+    }
+
+    private fun launchCustomTab() {
+        // Uses the established session to build a PCCT intent.
+        val session = mCustomTabActivityHelper.getSession()
+        val height = windowManager.currentWindowMetrics.bounds.height()
+
+        val url = binding.mainUrlEt.text.toString()
+        binding.vm?.updateUrl(url)
+
+        val customTabsIntent: CustomTabsIntent = CustomTabsIntent.Builder(session)
+            .setInitialActivityHeightPx(height - getTimerPosition())
+            .setCloseButtonPosition(CustomTabsIntent.CLOSE_BUTTON_POSITION_END)
+            .build()
+        try {
+            customTabsIntent.launchUrl(this, Uri.parse(url))
+        } catch (e: MalformedURLException) {
+            Toast.makeText(this, "Unavailable Uri", Toast.LENGTH_SHORT).show()
+        }
+
+        updateUrlListView()
+        searchEtClearFocus()
     }
 
     companion object {

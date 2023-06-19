@@ -13,6 +13,7 @@ import com.hipaduck.timerweb.Event
 import com.hipaduck.timerweb.data.TimerWebRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -27,7 +28,7 @@ class MainViewModel @Inject constructor(
     private val timerWebRepository: TimerWebRepository,
     private val datastore: DataStore<Preferences>,
 ) : ViewModel() {
-    var timerSec = 0
+    private var timerSec = 0
     private val _timer = MutableLiveData<String>()
     private val _shouldApplyAnimation: MutableLiveData<Boolean> =
         MutableLiveData(false)
@@ -43,10 +44,6 @@ class MainViewModel @Inject constructor(
     private val _actionEvent: MutableLiveData<Event<String>> = MutableLiveData(Event(""))
     val actionEvent: MutableLiveData<Event<String>>
         get() = _actionEvent
-
-    init {
-        repeatWork()
-    }
 
     fun updateUrl(url: String) {
         viewModelScope.launch {
@@ -128,23 +125,36 @@ class MainViewModel @Inject constructor(
         return urlList
     }
 
-    private fun repeatWork() {
-        countTime()
+    fun startWebBrowsing() {
+        _actionEvent.value = Event("launch_url")
+    }
+
+    fun repeatNotifyWork() {
         notifyPeriodically(10_000L)
     }
 
-    private fun countTime() {
+    fun stopNotifyWork() {
+        jobNotify?.cancel("notify work stopped")
+    }
+
+    fun countTime() {
         jobCount = viewModelScope.launch {
-            while (true) {
+            repeat(Int.MAX_VALUE) {
+                Log.d("timer_web", "countTime")
                 delay(1000L)
                 _timer.value = DateUtils.formatElapsedTime((++timerSec).toLong())
             }
         }
     }
 
+    fun pauseTime() {
+        jobCount?.cancel("web browsing stopped")
+    }
+
     private fun notifyPeriodically(periodTime: Long = DEFAULT_PERIOD_TIME) {
         jobNotify = viewModelScope.launch {
-            while (true) {
+            repeat(Int.MAX_VALUE) {
+                Log.d("timer_web", "notifyPeriodically")
                 delay(periodTime)
                 _actionEvent.value = Event("notify_on_period")
             }
@@ -152,8 +162,6 @@ class MainViewModel @Inject constructor(
     }
 
     // todo 신규 정의/호출해야 하는 함수 목록
-    // web browsing 이벤트 발생시 timer 시간 흐름
-    // web browsing 이벤트 종료시 timer 시간 일시 정지
     // timer 10초 갱신시마다(매초 보다는 효율적일듯) 현재 타이머의 값 저장하기
     // 앱을 구동시마다 로컬 저장소 값 기준으로 그래프 표현하기
 
