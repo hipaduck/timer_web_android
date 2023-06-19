@@ -1,6 +1,12 @@
 package com.hipaduck.timerweb.viewmodel
 
+import android.app.Application
 import android.text.format.DateUtils
+import android.util.Log
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,17 +18,29 @@ import com.hipaduck.timerweb.data.TimerWebRepository
 import com.hipaduck.timerweb.worker.TimeCountWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
+
 @HiltViewModel
 class MainViewModel @Inject constructor(
+    private val application: Application,
     private val timerWebRepository: TimerWebRepository,
-    private val workManager: WorkManager
+    private val workManager: WorkManager,
+    private val datastore: DataStore<Preferences>,
 ) : ViewModel() {
     var timerSec = 0
     private val _timer = MutableLiveData<String>()
+    private val _shouldApplyAnimation: MutableLiveData<Boolean> =
+        MutableLiveData(false)
+    val shouldApplyAnimation: MutableLiveData<Boolean>
+        get() = _shouldApplyAnimation
+
     val timer: MutableLiveData<String>
         get() = _timer
 
@@ -30,10 +48,12 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             while (timerSec >= 0) {
                 _timer.value = DateUtils.formatElapsedTime((++timerSec).toLong())
-//                Log.d("GAEGUL", "_timer.value: ${timer.value}")
+                if (timerSec % 600 == 0) _shouldApplyAnimation.value = true
+//                if (timerSec % 10 == 0) _shouldApplyAnimation.value = true //10s delay for the test
                 delay(1000L)
             }
         }
+
     }
 
     fun startWork() {
@@ -54,12 +74,97 @@ class MainViewModel @Inject constructor(
 
     fun cancelWork() = workManager.cancelUniqueWork(WORKER_KEY)
 
+    fun updateUrl(url: String) {
+        viewModelScope.launch {
+            val urlJsonArrayStr =
+                datastore.data.map {
+                    it[stringPreferencesKey(
+                        URL_SEARCH_HISTORY_PREF_KEY
+                    )]
+                }.first()
 
-    override fun onCleared() {
-        super.onCleared()
+            var urlJsonArray = JSONArray()
+            var jsonObject = JSONObject()
+                .put(URL_SEARCH_HISTORY_COUNT_KEY, 0)
+                .put(URL_SEARCH_HISTORY_TIME_KEY, System.currentTimeMillis())
+                .put(URL_SEARCH_HISTORY_URL_KEY, url)
+            var foundIndex: Int? = null
+            if (!urlJsonArrayStr.isNullOrEmpty()) {
+                urlJsonArray = JSONArray(urlJsonArrayStr)
+                (0 until urlJsonArray.length()).forEach { i ->
+                    Log.d(
+                        "GAEGUL",
+                        "updateUrl: $i : ${urlJsonArray.length()} / ${urlJsonArray.optJSONObject(i)}"
+                    )
+                    val obj = urlJsonArray.optJSONObject(i)
+                    if (obj.optString(URL_SEARCH_HISTORY_URL_KEY).equals(url)) {
+                        jsonObject = JSONObject()
+                            .put(
+                                URL_SEARCH_HISTORY_COUNT_KEY,
+                                obj.optInt(URL_SEARCH_HISTORY_COUNT_KEY) + 1
+                            )
+                            .put(URL_SEARCH_HISTORY_TIME_KEY, System.currentTimeMillis())
+                            .put(URL_SEARCH_HISTORY_URL_KEY, url)
+                        foundIndex = i
+                    }
+                }
+            }
+            foundIndex?.let {
+                urlJsonArray.remove(it)
+            }
+            urlJsonArray.put(jsonObject)
+            datastore.edit {
+                it[stringPreferencesKey(
+                    URL_SEARCH_HISTORY_PREF_KEY
+                )] = urlJsonArray.toString()
+            }
+        }
     }
 
-    companion object {
+    fun getUrlList(): ArrayList<UrlData> {
+        val urlList = arrayListOf<UrlData>()
+
+        viewModelScope.launch {
+            val urlJsonArrayStr =
+                datastore.data.map {
+                    it[stringPreferencesKey(
+                        URL_SEARCH_HISTORY_PREF_KEY
+                    )]
+                }.first()
+
+            if (urlJsonArrayStr.isNullOrBlank()) return@launch
+
+            val urlJsonArray = JSONArray(urlJsonArrayStr)
+            (0 until urlJsonArray.length()).forEach { i ->
+                val obj = urlJsonArray.getJSONObject(i)
+                urlList.add(
+                    UrlData(
+                        obj.optString(URL_SEARCH_HISTORY_URL_KEY),
+                        obj.optInt(URL_SEARCH_HISTORY_COUNT_KEY),
+                        obj.optLong(URL_SEARCH_HISTORY_TIME_KEY)
+                    )
+                )
+            }
+
+            urlList.sortWith(compareByDescending<UrlData> { it.count } //sort with priority
+                .thenBy { it.time }
+                .thenBy { it.url }
+            )
+        }
+        return urlList
+    }
+
+    data class UrlData(
+        var url: String,
+        var count: Int,
+        var time: Long
+    )
+
+    companion object PreferenceKey {
+        const val URL_SEARCH_HISTORY_PREF_KEY = "url_search_history"
+        const val URL_SEARCH_HISTORY_URL_KEY = "url"
+        const val URL_SEARCH_HISTORY_COUNT_KEY = "count"
+        const val URL_SEARCH_HISTORY_TIME_KEY = "time"
         private const val WORKER_KEY = "time_count_worker"
     }
 }
