@@ -4,7 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
@@ -26,11 +26,11 @@ class TimerWebRepositoryImpl @Inject constructor(
         if (list.size > 7) {
             list.sorted().take(list.size - 7).forEach {
                 dataStore.edit { preferences ->
-                    preferences.remove(intPreferencesKey(it))
+                    preferences.remove(longPreferencesKey(it))
                 }
             }
         }
-        val dataStr = list.sortedDescending().take(7).joinToString(",")
+        val dataStr = list.map { it.isNotEmpty() }.sortedDescending().take(7).joinToString(",")
         dataStore.edit { preferences ->
             preferences[validDatePreferenceKey] = dataStr
         }
@@ -49,24 +49,24 @@ class TimerWebRepositoryImpl @Inject constructor(
     // 각 날짜를 키로하여 숫자로 머무른 초 기록(기록시 초 단위로 올림 처리함, 1.3초일 경우 2초로 기록)
     // e.g. 키는 20230610, 값은 1211, 키는 20230612, 값은 223
     // 값은 매번 기록하지 않고, 메모리로 가지고 있다가, 해당 앱을 나가는 시점이나 변화하는 시점에 기록
-    override suspend fun putValueFromDateKey(dateKey: String, sec: Int) {
+    override suspend fun putValueFromDateKey(dateKey: String, sec: Long) {
         val currentValue = dataStore.data.catch { e ->
             if (e is IOException) emit(emptyPreferences())
             else throw e
         }.map { pref ->
-            pref[intPreferencesKey(dateKey)] ?: 0
+            pref[longPreferencesKey(dateKey)] ?: 0
         }.first()
         val targetValue = currentValue + sec
         dataStore.edit { preferences ->
-            preferences[intPreferencesKey(dateKey)] = targetValue
+            preferences[longPreferencesKey(dateKey)] = targetValue
         }
     }
 
-    override suspend fun getValueFromDateKey(dateKey: String): Int =
+    override suspend fun getValueFromDateKey(dateKey: String): Long =
         dataStore.data.catch { e ->
             if (e is IOException) emit(emptyPreferences())
             else throw e
         }.map { pref ->
-            pref[intPreferencesKey(dateKey)] ?: 0
+            pref[longPreferencesKey(dateKey)] ?: 0
         }.first()
 }

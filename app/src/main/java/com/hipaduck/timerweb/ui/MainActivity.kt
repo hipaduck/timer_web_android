@@ -18,6 +18,13 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.lifecycleScope
+import com.github.mikephil.charting.components.Legend
+import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.components.YAxis
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.hipaduck.timerweb.R
 import com.hipaduck.timerweb.customtab.CustomTabActivityHelper
 import com.hipaduck.timerweb.databinding.ActivityMainBinding
@@ -72,13 +79,79 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
 
     private fun initializeBinding() {
         mainViewModel.actionEvent.observe(this) { event ->
-            event.getContentIfNotHandled().let { eventName ->
-                when (eventName) {
+            event.getContentIfNotHandled().let { eventPair ->
+                when (eventPair?.first) {
                     "notify_on_period" -> shakeTimer()
                     "launch_url" -> launchCustomTab()
+                    "present_on_graph" -> {
+                        val list = eventPair.second
+                        if (list is List<*>) {
+                            list.checkItemsAre<Pair<String, Long>>()?.let {
+                                showGraph(it)
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private fun showGraph(list: List<Pair<String, Long>>) {
+        Log.d("timer_web", "showGraph: list: $list")
+        binding.linechartMainWaistTime.xAxis.apply {
+            position = XAxis.XAxisPosition.BOTTOM // x를 아래로
+            textSize = 10f
+            setDrawGridLines(false) // 배경
+            granularity = 10f // x 데이터 표시간격
+            axisMinimum = 2f // x 데이터 최소표시
+            isGranularityEnabled = true // x 간격 제한하는 기능
+            valueFormatter = IndexAxisValueFormatter(list.map { it.first })
+        }
+        binding.linechartMainWaistTime.apply {
+            axisRight.isEnabled = false // y 왼쪽만 사용
+            axisLeft.axisMaximum = 60 * 60 * 24f // 하루는 최대 24시간이므로 y 최대값
+            legend.apply {
+                textSize = 15f
+                verticalAlignment = Legend.LegendVerticalAlignment.TOP // 수직조정. 위로
+                horizontalAlignment = Legend.LegendHorizontalAlignment.CENTER // 수평조절. 가운데
+                orientation = Legend.LegendOrientation.HORIZONTAL // 범례와 차트. 수평
+                setDrawInside(false) // 차트 바깥으로 표현
+            }
+        }
+        val lineData = LineData()
+        binding.linechartMainWaistTime.data = lineData
+        lifecycleScope.launch {
+            val set = createSetForGraph()
+            lineData.addDataSet(set)
+            list.forEachIndexed { index, pair ->
+                lineData.addEntry(Entry(index.toFloat(), pair.second.toFloat()), 0)
+            }
+            lineData.notifyDataChanged()
+            binding.linechartMainWaistTime.apply {
+                notifyDataSetChanged()
+                moveViewToX(data.entryCount.toFloat())
+                setVisibleXRangeMaximum(7f)
+                setPinchZoom(false)
+                isDoubleTapToZoomEnabled = false
+                description.text = "시간(초)"
+                setBackgroundColor(Color.TRANSPARENT)
+                description.textSize = 15f
+                setExtraOffsets(5f, 10f, 5f, 8f)
+            }
+        }
+    }
+
+    private fun createSetForGraph(): LineDataSet = LineDataSet(null, "시간").apply {
+        axisDependency = YAxis.AxisDependency.LEFT
+        color = Color.BLUE
+        setCircleColor(Color.RED)
+        valueTextSize = 10f
+        lineWidth = 2f
+        circleRadius = 3f
+        fillAlpha = 0
+        fillColor = Color.DKGRAY
+        highLightColor = Color.GREEN
+        setDrawValues(true)
     }
 
     private fun shakeTimer() {
@@ -142,12 +215,12 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
 
     override fun onCustomTabShown() {
         mainViewModel.countTime() // 띄우고 난 뒤부터 카운팅 하기 위함
-        mainViewModel.repeatNotifyWork()
+        mainViewModel.repeatWork()
     }
 
     override fun onCustomTabHidden() {
         mainViewModel.pauseTime()
-        mainViewModel.stopNotifyWork()
+        mainViewModel.stopRepeatWork()
     }
 
     private fun searchEtClearFocus() {
@@ -185,3 +258,9 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
         const val ANIMATION_DELAY_SEC = 2000L
     }
 }
+
+@Suppress("UNCHECKED_CAST")
+inline fun <reified T : Any> List<*>.checkItemsAre() =
+    if (all { it is T })
+        this as List<T>
+    else null

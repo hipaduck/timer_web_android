@@ -5,7 +5,7 @@ interface TimerWebRepository {
 
     suspend fun getValidDates(): List<String>
 
-    suspend fun putValueFromDateKey(dateKey: String, sec: Int)
+    suspend fun putValueFromDateKey(dateKey: String, sec: Long)
 
-    suspend fun getValueFromDateKey(dateKey: String): Int
+    suspend fun getValueFromDateKey(dateKey: String): Long
 }

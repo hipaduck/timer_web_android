@@ -12,14 +12,18 @@ import androidx.lifecycle.viewModelScope
 import com.hipaduck.timerweb.Event
 import com.hipaduck.timerweb.data.TimerWebRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 
@@ -39,11 +43,17 @@ class MainViewModel @Inject constructor(
         get() = _timer
 
     private var jobNotify: Job? = null
+    private var jobWriteCurrentTime: Job? = null
     private var jobCount: Job? = null
 
-    private val _actionEvent: MutableLiveData<Event<String>> = MutableLiveData(Event(""))
-    val actionEvent: MutableLiveData<Event<String>>
+    private val _actionEvent: MutableLiveData<Event<Pair<String, Any?>>> =
+        MutableLiveData(Event("" to null))
+    val actionEvent: MutableLiveData<Event<Pair<String, Any?>>>
         get() = _actionEvent
+
+    init {
+        presentGraphFromDates()
+    }
 
     fun updateUrl(url: String) {
         viewModelScope.launch {
@@ -126,15 +136,17 @@ class MainViewModel @Inject constructor(
     }
 
     fun startWebBrowsing() {
-        _actionEvent.value = Event("launch_url")
+        _actionEvent.value = Event("launch_url" to null)
     }
 
-    fun repeatNotifyWork() {
-        notifyPeriodically(10_000L)
+    fun repeatWork() {
+        notifyPeriodically(20_000L)
+        writePeriodically(10_000L)
     }
 
-    fun stopNotifyWork() {
+    fun stopRepeatWork() {
         jobNotify?.cancel("notify work stopped")
+        jobWriteCurrentTime?.cancel("write work stopped")
     }
 
     fun countTime() {
@@ -156,7 +168,54 @@ class MainViewModel @Inject constructor(
             repeat(Int.MAX_VALUE) {
                 Log.d("timer_web", "notifyPeriodically")
                 delay(periodTime)
-                _actionEvent.value = Event("notify_on_period")
+                _actionEvent.value = Event("notify_on_period" to null)
+            }
+        }
+    }
+
+    private fun writePeriodically(periodTime: Long = DEFAULT_PERIOD_TIME) {
+        jobWriteCurrentTime = viewModelScope.launch {
+            repeat(Int.MAX_VALUE) {
+                Log.d("timer_web", "writePeriodically")
+                delay(periodTime)
+                // 오늘 날짜를 문자열로 만든다
+                val today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+                Log.d("timer_web", "writePeriodically- today: $today")
+                // 현재 저장된 시간을 가져온다
+                val storedAccumulatedTime = timerWebRepository.getValueFromDateKey(today)
+                // 현재 저장된 시간을 갱신한다(periodTime만큼 흘렀다고 가정)
+                timerWebRepository.putValueFromDateKey(
+                    today,
+                    storedAccumulatedTime.plus(periodTime / 1_000) // 초를 표현하기 위해 1000을 나눔
+                )
+                // 유효한 날짜 목록을 가져온다
+                val storedDates = timerWebRepository.getValidDates()
+                Log.d("timer_web", "writePeriodically- storedDates: $storedDates")
+                // 만약 유효한 날짜 목록에 오늘이 없다면 오늘을 저장한다
+                if (!storedDates.contains(today)) {
+                    storedDates.toMutableList().apply {
+                        add(today)
+                        timerWebRepository.putValidDates(this)
+                    }
+                    val afterStoredDates = timerWebRepository.getValidDates()
+                    Log.d("timer_web", "writePeriodically- after storedDates: $afterStoredDates")
+                }
+            }
+        }
+    }
+
+    private fun presentGraphFromDates() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val storedDates = timerWebRepository.getValidDates()
+            val fullDataList = mutableListOf<Pair<String, Long>>()
+            for (date in storedDates) {
+                if (date.isEmpty()) continue
+                val timeValue = timerWebRepository.getValueFromDateKey(date)
+                fullDataList.add(date to timeValue)
+            }
+            Log.d("timer_web", "presentGraphFromDates-fullDataList: $fullDataList")
+            withContext(Dispatchers.Main) {
+                _actionEvent.value = Event("present_on_graph" to fullDataList)
             }
         }
     }
