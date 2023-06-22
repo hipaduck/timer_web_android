@@ -56,7 +56,7 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
             searchEtClearFocus()
             true
         }
-
+        
         binding.mainUrlEt.setOnFocusChangeListener { _, isFocused ->
             if (isFocused) {
                 updateUrlListView()

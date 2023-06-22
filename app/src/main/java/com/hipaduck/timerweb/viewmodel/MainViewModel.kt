@@ -1,5 +1,6 @@
 package com.hipaduck.timerweb.viewmodel
 
+import android.app.Application
 import android.text.format.DateUtils
 import android.util.Log
 import androidx.datastore.core.DataStore
@@ -29,6 +30,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
+    private val application: Application,
     private val timerWebRepository: TimerWebRepository,
     private val datastore: DataStore<Preferences>,
 ) : ViewModel() {
@@ -100,6 +102,7 @@ class MainViewModel @Inject constructor(
                 )] = urlJsonArray.toString()
             }
         }
+
     }
 
     fun getUrlList(): ArrayList<UrlData> {
