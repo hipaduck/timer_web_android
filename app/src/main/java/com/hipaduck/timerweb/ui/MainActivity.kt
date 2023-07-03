@@ -5,7 +5,6 @@ import android.content.Context
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
@@ -27,6 +26,7 @@ import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.hipaduck.timerweb.R
+import com.hipaduck.timerweb.common.logd
 import com.hipaduck.timerweb.customtab.CustomTabActivityHelper
 import com.hipaduck.timerweb.databinding.ActivityMainBinding
 import com.hipaduck.timerweb.viewmodel.MainViewModel
@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
         }
 
         binding.mainUrlLv.setOnItemClickListener { v, _, i, _ ->
-            Log.d("timer_web", "onCreate: setOnItemClickListener $i")
+            logd("onCreate: setOnItemClickListener $i")
             binding.vm?.applyListTextToCurrentText(i)
             v.visibility = View.GONE
         }
@@ -102,19 +102,19 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
     }
 
     private fun showGraph(list: List<Pair<String, Long>>) {
-        Log.d("timer_web", "showGraph: list: $list")
+        logd("showGraph: list: $list")
         binding.linechartMainWaistTime.xAxis.apply {
             position = XAxis.XAxisPosition.BOTTOM // x를 아래로
             textSize = 10f
             setDrawGridLines(false) // 배경
-            granularity = 10f // x 데이터 표시간격
-            axisMinimum = 2f // x 데이터 최소표시
+            granularity = 1f // x 데이터 표시간격
+            axisMinimum = 1f // x 데이터 최소표시
             isGranularityEnabled = true // x 간격 제한하는 기능
             valueFormatter = IndexAxisValueFormatter(list.map { it.first })
         }
         binding.linechartMainWaistTime.apply {
             axisRight.isEnabled = false // y 왼쪽만 사용
-            axisLeft.axisMaximum = 60 * 60 * 12f // y 최대값
+            axisLeft.axisMaximum = 60 * 60 * 3f // y 최대값: 3시간
             legend.apply {
                 textSize = 15f
                 verticalAlignment = Legend.LegendVerticalAlignment.TOP // 수직조정. 위로
@@ -130,6 +130,7 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
             lineData.apply {
                 addDataSet(set)
                 list.forEachIndexed { index, pair ->
+                    logd("list.forEach: index.toFloat(): ${index.toFloat()},  pair.second.toFloat(): ${pair.second.toFloat()}")
                     addEntry(Entry(index.toFloat(), pair.second.toFloat()), 0)
                 }
                 notifyDataChanged()
@@ -138,7 +139,7 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
                 notifyDataSetChanged()
                 moveViewToX(data.entryCount.toFloat())
                 setVisibleXRangeMaximum(7f)
-                setPinchZoom(false)
+                setPinchZoom(true)
                 isDoubleTapToZoomEnabled = false
                 description.text = "시간(초)"
                 setBackgroundColor(Color.TRANSPARENT)
@@ -203,11 +204,11 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
     }
 
     override fun onCustomTabsConnected() {
-        Log.d("Connection", "connected")
+        logd("Connection connected")
     }
 
     override fun onCustomTabsDisconnected() {
-        Log.d("Connection", "disconnected")
+        logd("Connection disconnected")
         mCustomTabActivityHelper.unbindCustomTabsService(this)
     }
 

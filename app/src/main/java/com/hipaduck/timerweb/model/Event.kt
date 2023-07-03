@@ -1,4 +1,4 @@
-package com.hipaduck.timerweb
+package com.hipaduck.timerweb.model
 
 /**
  * ViewModel에서 View로 이벤트를 발생시킬 경우 하나의 이벤트를 발행하기 위한 방법으로, 해당 LiveData내의 객체를 Event로 감싸서 사용

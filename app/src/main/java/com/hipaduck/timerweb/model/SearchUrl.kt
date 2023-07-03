@@ -1,4 +1,4 @@
-package com.hipaduck.timerweb
+package com.hipaduck.timerweb.model
 
 data class SearchUrl(
     var url: String,

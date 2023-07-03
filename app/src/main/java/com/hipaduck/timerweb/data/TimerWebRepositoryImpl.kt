@@ -6,7 +6,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.hipaduck.timerweb.SearchUrl
+import com.hipaduck.timerweb.common.logd
+import com.hipaduck.timerweb.model.SearchUrl
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -33,7 +34,7 @@ class TimerWebRepositoryImpl @Inject constructor(
                 }
             }
         }
-        val dataStr = list.map { it.isNotEmpty() }.sortedDescending().take(7).joinToString(",")
+        val dataStr = list.sortedDescending().take(7).joinToString(",")
         dataStore.edit { preferences ->
             preferences[validDatePreferenceKey] = dataStr
         }
@@ -46,19 +47,21 @@ class TimerWebRepositoryImpl @Inject constructor(
         }.map { pref ->
             pref[validDatePreferenceKey] ?: ""
         }.first()
+        logd("getValidDates - storedDataStr: $storedDataStr")
         return storedDataStr.split(",")
     }
 
     // 각 날짜를 키로하여 숫자로 머무른 초 기록(기록시 초 단위로 올림 처리함, 1.3초일 경우 2초로 기록)
     // e.g. 키는 20230610, 값은 1211, 키는 20230612, 값은 223
     // 값은 매번 기록하지 않고, 메모리로 가지고 있다가, 해당 앱을 나가는 시점이나 변화하는 시점에 기록
-    override suspend fun putValueFromDateKey(dateKey: String, sec: Long) {
+    override suspend fun accumulateValueFromDateKey(dateKey: String, sec: Long) {
         val currentValue = dataStore.data.catch { e ->
             if (e is IOException) emit(emptyPreferences())
             else throw e
         }.map { pref ->
             pref[longPreferencesKey(dateKey)] ?: 0
         }.first()
+        logd("currentValue: $currentValue, sec: $sec")
         val targetValue = currentValue + sec
         dataStore.edit { preferences ->
             preferences[longPreferencesKey(dateKey)] = targetValue

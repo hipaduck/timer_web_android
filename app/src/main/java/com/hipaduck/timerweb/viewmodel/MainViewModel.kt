@@ -3,16 +3,14 @@ package com.hipaduck.timerweb.viewmodel
 import android.app.Application
 import android.media.MediaPlayer
 import android.text.format.DateUtils
-import android.util.Log
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hipaduck.timerweb.Event
 import com.hipaduck.timerweb.R
-import com.hipaduck.timerweb.SearchUrl
+import com.hipaduck.timerweb.common.logd
 import com.hipaduck.timerweb.data.TimerWebRepository
+import com.hipaduck.timerweb.model.Event
+import com.hipaduck.timerweb.model.SearchUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,10 +27,9 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val application: Application,
     private val timerWebRepository: TimerWebRepository,
-    private val datastore: DataStore<Preferences>,
 ) : ViewModel() {
     private var timerSec = 0
-    private val _timer = MutableLiveData<String>("00:00")
+    private val _timer = MutableLiveData("00:00")
     val timer: MutableLiveData<String>
         get() = _timer
 
@@ -77,7 +74,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun repeatWork() {
-        notifyPeriodically(20_000L)
+        notifyPeriodically(300_000L) // 5분마다 한번씩 알람 울리도록
         writePeriodically(10_000L)
     }
 
@@ -87,7 +84,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun applyListTextToCurrentText(idx: Int) {
-        Log.d("timer_web", "applyListTextToCurrentText: $idx")
+        logd("applyListTextToCurrentText: $idx")
         viewModelScope.launch(Dispatchers.IO) {
             val urlList = timerWebRepository.getSearchUrl()
             withContext(Dispatchers.Main) {
@@ -99,7 +96,7 @@ class MainViewModel @Inject constructor(
     fun countTime() {
         jobCount = viewModelScope.launch {
             repeat(Int.MAX_VALUE) {
-                Log.d("timer_web", "countTime")
+//                logd("countTime")
                 delay(1000L)
                 _timer.value = DateUtils.formatElapsedTime((++timerSec).toLong())
             }
@@ -116,7 +113,7 @@ class MainViewModel @Inject constructor(
     private fun notifyPeriodically(periodTime: Long = DEFAULT_PERIOD_TIME) {
         jobNotify = viewModelScope.launch {
             repeat(Int.MAX_VALUE) {
-                Log.d("timer_web", "notifyPeriodically")
+                logd("notifyPeriodically")
                 delay(periodTime)
                 _actionEvent.value = Event("notify_on_period" to null)
                 playSoundEffect()
@@ -127,30 +124,36 @@ class MainViewModel @Inject constructor(
     private fun writePeriodically(periodTime: Long = DEFAULT_PERIOD_TIME) {
         jobWriteCurrentTime = viewModelScope.launch {
             repeat(Int.MAX_VALUE) {
-                Log.d("timer_web", "writePeriodically")
+                logd("writePeriodically")
                 delay(periodTime)
                 // 오늘 날짜를 문자열로 만든다
-                val today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
-                Log.d("timer_web", "writePeriodically- today: $today")
+                val today =
+                    LocalDate.now().plusDays(0)
+                        .format(DateTimeFormatter.ofPattern("yyyyMMdd")) // 테스트하고 싶으면 plusDays에 날짜를 하루씩 늘려서 기록한 후 그래프로 확인 가능
+                logd("writePeriodically- today: $today")
                 // 현재 저장된 시간을 가져온다
                 val storedAccumulatedTime = timerWebRepository.getValueFromDateKey(today)
+                logd("writePeriodically - storedAccumulatedTime- $storedAccumulatedTime , periodTime: $periodTime")
+                logd("writePeriodically - added- ${storedAccumulatedTime + (periodTime / 1_000)}")
                 // 현재 저장된 시간을 갱신한다(periodTime만큼 흘렀다고 가정)
-                timerWebRepository.putValueFromDateKey(
+                timerWebRepository.accumulateValueFromDateKey(
                     today,
-//                    5000
-                    storedAccumulatedTime.plus(periodTime / 1_000) // 초를 표현하기 위해 1000을 나눔
+                    periodTime / 1_000 // 초를 표현하기 위해 1000을 나눔
                 )
+                val valueFromDateKey = timerWebRepository.getValueFromDateKey(today)
+                logd("writePeriodically - valueFromDateKey- $valueFromDateKey")
                 // 유효한 날짜 목록을 가져온다
                 val storedDates = timerWebRepository.getValidDates()
-                Log.d("timer_web", "writePeriodically- storedDates: $storedDates")
+                logd("writePeriodically- storedDates: $storedDates")
                 // 만약 유효한 날짜 목록에 오늘이 없다면 오늘을 저장한다
                 if (!storedDates.contains(today)) {
-                    storedDates.toMutableList().apply {
+                    val tempList = storedDates.toMutableList().apply {
                         add(today)
-                        timerWebRepository.putValidDates(this)
                     }
+                    logd("writePeriodically- $tempList")
+                    timerWebRepository.putValidDates(tempList)
                     val afterStoredDates = timerWebRepository.getValidDates()
-                    Log.d("timer_web", "writePeriodically- after storedDates: $afterStoredDates")
+                    logd("writePeriodically- after storedDates: $afterStoredDates")
                 }
             }
         }
@@ -165,7 +168,7 @@ class MainViewModel @Inject constructor(
                 val timeValue = timerWebRepository.getValueFromDateKey(date)
                 fullDataList.add(date to timeValue)
             }
-            Log.d("timer_web", "presentGraphFromDates-fullDataList: $fullDataList")
+            logd("presentGraphFromDates-fullDataList: $fullDataList")
             withContext(Dispatchers.Main) {
                 _actionEvent.value = Event("present_on_graph" to fullDataList)
             }
