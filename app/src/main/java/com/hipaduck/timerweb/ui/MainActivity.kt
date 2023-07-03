@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.lifecycleScope
@@ -32,14 +33,13 @@ import com.hipaduck.timerweb.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.net.MalformedURLException
 
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCallback {
     lateinit var binding: ActivityMainBinding
     private lateinit var mCustomTabActivityHelper: CustomTabActivityHelper
-    private val list: MutableList<String> = mutableListOf()
+
     private val mainViewModel by viewModels<MainViewModel>()
 
     @SuppressLint("ClickableViewAccessibility")
@@ -56,25 +56,24 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
             searchEtClearFocus()
             true
         }
-        
+
         binding.mainUrlEt.setOnFocusChangeListener { _, isFocused ->
             if (isFocused) {
-                updateUrlListView()
+                binding.vm?.refreshUrlList()
                 binding.mainUrlLv.visibility = View.VISIBLE
             } else {
                 binding.mainUrlLv.visibility = View.GONE
             }
         }
 
-        binding.mainUrlLv.setOnItemClickListener { _, _, i, _ ->
-            updateUrlListView()
-            list.getOrNull(i)?.let {
-                binding.mainUrlEt.setText(it)
-            }
-            binding.mainUrlLv.visibility = View.GONE
-            searchEtClearFocus()
+        binding.mainUrlLv.setOnItemClickListener { v, _, i, _ ->
+            Log.d("timer_web", "onCreate: setOnItemClickListener $i")
+            binding.vm?.applyListTextToCurrentText(i)
+            v.visibility = View.GONE
         }
-        updateUrlListView()
+
+
+        binding.vm?.refreshUrlList()
     }
 
     private fun initializeBinding() {
@@ -85,10 +84,16 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
                     "launch_url" -> launchCustomTab()
                     "present_on_graph" -> {
                         val list = eventPair.second
-                        if (list is List<*>) {
-                            list.checkItemsAre<Pair<String, Long>>()?.let {
-                                showGraph(it)
-                            }
+                        if (list !is List<*>) return@observe
+                        list.checkItemsAre<Pair<String, Long>>()?.let { showGraph(it) }
+                    }
+
+                    "refresh_search_url_list" -> {
+                        val list = eventPair.second
+                        if (list !is List<*>) return@observe
+                        list.checkItemsAre<String>()?.let {
+                            binding.mainUrlLv.adapter =
+                                ArrayAdapter(this, android.R.layout.simple_list_item_1, it)
                         }
                     }
                 }
@@ -109,7 +114,7 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
         }
         binding.linechartMainWaistTime.apply {
             axisRight.isEnabled = false // y 왼쪽만 사용
-            axisLeft.axisMaximum = 60 * 60 * 24f // 하루는 최대 24시간이므로 y 최대값
+            axisLeft.axisMaximum = 60 * 60 * 12f // y 최대값
             legend.apply {
                 textSize = 15f
                 verticalAlignment = Legend.LegendVerticalAlignment.TOP // 수직조정. 위로
@@ -122,11 +127,13 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
         binding.linechartMainWaistTime.data = lineData
         lifecycleScope.launch {
             val set = createSetForGraph()
-            lineData.addDataSet(set)
-            list.forEachIndexed { index, pair ->
-                lineData.addEntry(Entry(index.toFloat(), pair.second.toFloat()), 0)
+            lineData.apply {
+                addDataSet(set)
+                list.forEachIndexed { index, pair ->
+                    addEntry(Entry(index.toFloat(), pair.second.toFloat()), 0)
+                }
+                notifyDataChanged()
             }
-            lineData.notifyDataChanged()
             binding.linechartMainWaistTime.apply {
                 notifyDataSetChanged()
                 moveViewToX(data.entryCount.toFloat())
@@ -144,13 +151,13 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
     private fun createSetForGraph(): LineDataSet = LineDataSet(null, "시간").apply {
         axisDependency = YAxis.AxisDependency.LEFT
         color = Color.BLUE
-        setCircleColor(Color.RED)
+        setCircleColor(resources.getColor(R.color.text_color, null))
         valueTextSize = 10f
         lineWidth = 2f
         circleRadius = 3f
         fillAlpha = 0
         fillColor = Color.DKGRAY
-        highLightColor = Color.GREEN
+        highLightColor = resources.getColor(R.color.highlight_color, null)
         setDrawValues(true)
     }
 
@@ -177,15 +184,6 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
         }
     }
 
-    private fun updateUrlListView() {
-        list.clear()
-        list.addAll(binding.vm!!.getUrlList().map { it.url })
-        binding.mainUrlLv.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_list_item_1,
-            list
-        )
-    }
 
     private fun getTimerPosition(): Int {
         val position: IntArray = intArrayOf(0, 0)
@@ -214,7 +212,8 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
     }
 
     override fun onCustomTabShown() {
-        mainViewModel.countTime() // 띄우고 난 뒤부터 카운팅 하기 위함
+        // 띄우고 난 뒤부터 카운팅 하기 위함
+        mainViewModel.countTime()
         mainViewModel.repeatWork()
     }
 
@@ -237,20 +236,28 @@ class MainActivity : AppCompatActivity(), CustomTabActivityHelper.ConnectionCall
         val session = mCustomTabActivityHelper.getSession()
         val height = windowManager.currentWindowMetrics.bounds.height()
 
-        val url = binding.mainUrlEt.text.toString()
+        var url = binding.mainUrlEt.text.toString()
+        if (!url.startsWith("http")) {
+            url = "https://$url"
+        }
         binding.vm?.updateUrl(url)
 
         val customTabsIntent: CustomTabsIntent = CustomTabsIntent.Builder(session)
             .setInitialActivityHeightPx(height - getTimerPosition())
             .setCloseButtonPosition(CustomTabsIntent.CLOSE_BUTTON_POSITION_END)
+            .setDefaultColorSchemeParams(
+                CustomTabColorSchemeParams.Builder()
+                    .setToolbarColor(resources.getColor(R.color.background_color, null))
+                    .build()
+            )
             .build()
         try {
             customTabsIntent.launchUrl(this, Uri.parse(url))
-        } catch (e: MalformedURLException) {
+        } catch (e: Exception) {
             Toast.makeText(this, "Unavailable Uri", Toast.LENGTH_SHORT).show()
         }
 
-        updateUrlListView()
+        binding.vm?.refreshUrlList()
         searchEtClearFocus()
     }
 

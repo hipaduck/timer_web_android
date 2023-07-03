@@ -6,9 +6,12 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.hipaduck.timerweb.SearchUrl
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,7 +20,7 @@ import javax.inject.Singleton
 class TimerWebRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) : TimerWebRepository {
-    private val validDatePreferenceKey = stringPreferencesKey("valid_dates")
+    private val validDatePreferenceKey = stringPreferencesKey(VALID_DATE_PREF_KEY)
 
     // 유효한 날짜를 가지고 있는 valid_dates(시간역순정렬)
     // e.g. 20230613,20230612,20230610
@@ -69,4 +72,84 @@ class TimerWebRepositoryImpl @Inject constructor(
         }.map { pref ->
             pref[longPreferencesKey(dateKey)] ?: 0
         }.first()
+
+    override suspend fun putSearchUrl(url: String) {
+        val urlJsonArrayStr =
+            dataStore.data.map {
+                it[stringPreferencesKey(
+                    URL_HISTORY_PREF_KEY
+                )]
+            }.first()
+
+        var urlJsonArray = JSONArray()
+        var jsonObject = JSONObject()
+            .put(URL_HISTORY_COUNT_KEY, 0)
+            .put(URL_HISTORY_TIME_KEY, System.currentTimeMillis())
+            .put(URL_HISTORY_URL_KEY, url)
+        var foundIndex: Int? = null
+        if (!urlJsonArrayStr.isNullOrEmpty()) {
+            urlJsonArray = JSONArray(urlJsonArrayStr)
+            (0 until urlJsonArray.length()).forEach { i ->
+                val obj = urlJsonArray.optJSONObject(i)
+                if (obj.optString(URL_HISTORY_URL_KEY).equals(url)) {
+                    jsonObject = JSONObject()
+                        .put(
+                            URL_HISTORY_COUNT_KEY,
+                            obj.optInt(URL_HISTORY_COUNT_KEY) + 1
+                        )
+                        .put(URL_HISTORY_TIME_KEY, System.currentTimeMillis())
+                        .put(URL_HISTORY_URL_KEY, url)
+                    foundIndex = i
+                }
+            }
+        }
+        foundIndex?.let {
+            urlJsonArray.remove(it)
+        }
+        urlJsonArray.put(jsonObject)
+        dataStore.edit {
+            it[stringPreferencesKey(
+                URL_HISTORY_PREF_KEY
+            )] = urlJsonArray.toString()
+        }
+    }
+
+    override suspend fun getSearchUrl(): List<SearchUrl> {
+        val urlList = mutableListOf<SearchUrl>()
+        val urlJsonArrayStr =
+            dataStore.data.map {
+                it[stringPreferencesKey(
+                    URL_HISTORY_PREF_KEY
+                )]
+            }.first()
+
+        if (urlJsonArrayStr.isNullOrBlank()) return urlList
+
+        val urlJsonArray = JSONArray(urlJsonArrayStr)
+        (0 until urlJsonArray.length()).forEach { i ->
+            val obj = urlJsonArray.getJSONObject(i)
+            urlList.add(
+                SearchUrl(
+                    obj.optString(URL_HISTORY_URL_KEY),
+                    obj.optInt(URL_HISTORY_COUNT_KEY),
+                    obj.optLong(URL_HISTORY_TIME_KEY)
+                )
+            )
+        }
+
+        urlList.sortWith(compareByDescending<SearchUrl> { it.count } //sort with priority: count > time > url
+            .thenBy { it.time }
+            .thenBy { it.url }
+        )
+
+        return urlList
+    }
+
+    companion object {
+        const val VALID_DATE_PREF_KEY = "valid_dates"
+        const val URL_HISTORY_PREF_KEY = "url_search_history"
+        const val URL_HISTORY_URL_KEY = "url"
+        const val URL_HISTORY_COUNT_KEY = "count"
+        const val URL_HISTORY_TIME_KEY = "time"
+    }
 }
