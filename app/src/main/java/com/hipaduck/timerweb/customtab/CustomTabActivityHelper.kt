@@ -2,12 +2,11 @@ package com.hipaduck.timerweb.customtab
 
 import android.app.Activity
 import android.os.Bundle
-import android.util.Log
 import androidx.browser.customtabs.CustomTabsCallback
 import androidx.browser.customtabs.CustomTabsClient
 import androidx.browser.customtabs.CustomTabsServiceConnection
 import androidx.browser.customtabs.CustomTabsSession
-
+import com.hipaduck.timerweb.common.logd
 
 class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback) :
     ServiceConnectionCallback {
@@ -34,7 +33,7 @@ class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback
 
                 else -> navigationEvent.toString()
             }
-            Log.d("timer_web", "onNavigationEvent: $event")
+            logd("onNavigationEvent: $event")
         }
     }
 
@@ -73,7 +72,7 @@ class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback
         val packageName = activity?.let { CustomTabsHelper.getPackageNameToUse(it) } ?: return
         mConnection = ServiceConnection(this)
         CustomTabsClient.bindCustomTabsService(
-            activity!!,
+            activity,
             packageName,
             mConnection as ServiceConnection
         )
