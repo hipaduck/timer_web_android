@@ -6,7 +6,7 @@ import androidx.browser.customtabs.CustomTabsCallback
 import androidx.browser.customtabs.CustomTabsClient
 import androidx.browser.customtabs.CustomTabsServiceConnection
 import androidx.browser.customtabs.CustomTabsSession
-
+import com.hipaduck.timerweb.common.logd
 
 class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback) :
     ServiceConnectionCallback {
@@ -21,10 +21,19 @@ class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback
                 NAVIGATION_FAILED -> "NAVIGATION_FAILED"
                 NAVIGATION_FINISHED -> "NAVIGATION_FINISHED"
                 NAVIGATION_STARTED -> "NAVIGATION_STARTED"
-                TAB_SHOWN -> "TAB_SHOWN"
-                TAB_HIDDEN -> "TAB_HIDDEN"
+                TAB_SHOWN -> {
+                    connectionCallback.onCustomTabShown()
+                    "TAB_SHOWN"
+                }
+
+                TAB_HIDDEN -> {
+                    connectionCallback.onCustomTabHidden()
+                    "TAB_HIDDEN"
+                }
+
                 else -> navigationEvent.toString()
             }
+            logd("onNavigationEvent: $event")
         }
     }
 
@@ -63,7 +72,7 @@ class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback
         val packageName = activity?.let { CustomTabsHelper.getPackageNameToUse(it) } ?: return
         mConnection = ServiceConnection(this)
         CustomTabsClient.bindCustomTabsService(
-            activity!!,
+            activity,
             packageName,
             mConnection as ServiceConnection
         )
@@ -96,5 +105,9 @@ class CustomTabActivityHelper(private var connectionCallback: ConnectionCallback
          * Called when the service is disconnected.
          */
         fun onCustomTabsDisconnected()
+
+        fun onCustomTabHidden()
+
+        fun onCustomTabShown()
     }
 }

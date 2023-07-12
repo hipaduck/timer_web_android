@@ -14,7 +14,7 @@
         android:id="@+id/background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#85CDD4FD"
+        android:background="@color/background_color"
         tools:context=".MainActivity">
 
         <View
@@ -29,7 +29,6 @@
             android:layout_margin="20dp"
             android:background="@drawable/background_square"
             android:gravity="center"
-            android:onClick="@{()->vm.cancelWork()}"
             android:paddingHorizontal="16dp"
             android:paddingVertical="8dp"
             android:text="@{vm.timer}"
@@ -64,7 +63,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
                 android:hint="https://....com"
-                android:text="https://"
+                android:text="@={vm.inputUrlText}"
                 android:textColor="@color/text_color"
                 android:textColorHint="#C92D3D77"
                 android:textColorLink="#C9517CC8"
@@ -75,6 +74,7 @@
                 android:layout_width="50dp"
                 android:layout_height="50dp"
                 android:background="@drawable/background_square"
+                android:onClick="@{()->vm.startWebBrowsing()}"
                 android:scaleType="centerCrop"
                 android:src="@drawable/magnifying_glass" />
         </LinearLayout>
@@ -82,11 +82,24 @@
         <ListView
             android:id="@+id/main_url_lv"
             android:layout_width="250dp"
-            android:layout_height="200dp"
+            android:layout_height="220dp"
             android:background="@drawable/background_square"
+            android:padding="8dp"
+            android:scrollbarStyle="insideInset"
+            android:smoothScrollbar="true"
             android:visibility="gone"
             app:layout_constraintStart_toStartOf="@id/main_search_layout"
             app:layout_constraintTop_toBottomOf="@id/main_search_layout" />
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/linechart_main_waist_time"
+            android:layout_width="0dp"
+            android:layout_height="300dp"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginTop="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/main_url_lv" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>
