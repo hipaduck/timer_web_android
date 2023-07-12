@@ -14,7 +14,7 @@
         android:id="@+id/background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#85CDD4FD"
+        android:background="@color/background_color"
         tools:context=".MainActivity">
 
         <View
@@ -25,13 +25,13 @@
         <TextView
             android:id="@+id/main_timer_tv"
             android:layout_width="200dp"
-            android:layout_height="100dp"
-            android:layout_margin="100dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="20dp"
             android:background="@drawable/background_square"
             android:gravity="center"
-            android:onClick="@{()->vm.cancelWork()}"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp"
             android:text="@{vm.timer}"
-            android:textColor="#2D3D77"
             android:textSize="40sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
@@ -43,32 +43,63 @@
             android:layout_width="match_parent"
             android:layout_height="3dp"
             android:layout_marginTop="16dp"
-            android:background="#2D3D77"
+            android:background="@color/text_color"
             app:layout_constraintTop_toBottomOf="@id/main_timer_tv" />
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/main_search_layout"
+            android:layout_width="wrap_content"
             android:layout_height="50dp"
             android:layout_marginTop="32dp"
             android:gravity="center"
             android:orientation="horizontal"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/main_timer_tv">
 
             <EditText
-                android:layout_width="300dp"
+                android:id="@+id/main_url_et"
+                android:layout_width="250dp"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
-                android:hint="http://....com"
-                android:textColorHint="#C92D3D77" />
+                android:hint="https://....com"
+                android:text="@={vm.inputUrlText}"
+                android:textColor="@color/text_color"
+                android:textColorHint="#C92D3D77"
+                android:textColorLink="#C9517CC8"
+                android:theme="@style/EditTextStyle" />
 
             <ImageView
+                android:id="@+id/main_search_iv"
                 android:layout_width="50dp"
                 android:layout_height="50dp"
                 android:background="@drawable/background_square"
-                android:onClick="@{()->vm.startWork()}"
+                android:onClick="@{()->vm.startWebBrowsing()}"
                 android:scaleType="centerCrop"
                 android:src="@drawable/magnifying_glass" />
         </LinearLayout>
+
+        <ListView
+            android:id="@+id/main_url_lv"
+            android:layout_width="250dp"
+            android:layout_height="220dp"
+            android:background="@drawable/background_square"
+            android:padding="8dp"
+            android:scrollbarStyle="insideInset"
+            android:smoothScrollbar="true"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="@id/main_search_layout"
+            app:layout_constraintTop_toBottomOf="@id/main_search_layout" />
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/linechart_main_waist_time"
+            android:layout_width="0dp"
+            android:layout_height="300dp"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginTop="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/main_url_lv" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

@@ -1,4 +1,4 @@
-package com.hipaduck.timerweb
+package com.hipaduck.timerweb.customtab
 
 import android.content.ComponentName
 import androidx.browser.customtabs.CustomTabsClient
