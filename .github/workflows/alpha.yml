@@ -49,7 +49,7 @@ jobs:
           echo "keyAlias=$KEYSTORE_KEY_ALIAS" >> keystore.properties
           echo "keyPassword=$KEYSTORE_KEY_PASSWORD" >> keystore.properties
         env:
-          KEYSTORE: ${{ secrets.APP_KEYSTORE_BASE64 }}
+          KEYSTORE: ${{ secrets.HIPADUCK_KEYSTORE_BASE64 }}
           KEYSTORE_KEY_ALIAS: ${{ secrets.APP_KEYSTORE_KEY_ALIAS }}
           KEYSTORE_KEY_PASSWORD: ${{ secrets.APP_KEYSTORE_KEY_PASSWORD }}
           KEYSTORE_STORE_PASSWORD: ${{ secrets.APP_KEYSTORE_STORE_PASSWORD }}
